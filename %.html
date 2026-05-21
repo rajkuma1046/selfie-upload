@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mock Test Percentile Tracker</title>
+<style>
+:root{
+  --bg:#0d1117;
+  --surface:#161b22;
+  --surface2:#1c2128;
+  --border:#30363d;
+  --t1:#10b981;
+  --t1-dim:rgba(16,185,129,0.12);
+  --t1-glow:rgba(16,185,129,0.25);
+  --t2:#818cf8;
+  --t2-dim:rgba(129,140,248,0.12);
+  --t2-glow:rgba(129,140,248,0.25);
+  --text:#e6edf3;
+  --muted:#8b949e;
+  --danger:#f85149;
+  --success:#3fb950;
+  --warn:#d29922;
+  --r:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Figtree',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  padding:24px 20px 48px;
+}
+
+/* ── Header ─────────────────────────────── */
+header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:24px;
+  padding-bottom:18px;
+  border-bottom:1px solid var(--border);
+  flex-wrap:wrap;
+  gap:12px;
+}
+.logo{
+  font-family:'Syne',sans-serif;
+  font-size:1.45rem;
+  font-weight:800;
+  letter-spacing:-0.4px;
+}
+.logo em{color:var(--t1);font-style:normal}
+.header-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sync-pill{
+  display:flex;align-items:center;gap:7px;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:5px 12px;
+  font-size:0.75rem;color:var(--muted);
+  user-select:none;
+}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background .3s}
+.dot.synced{background:var(--success)}
+.dot.syncing{background:var(--warn);animation:blink 1s infinite}
+.dot.error{background:var(--danger)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.btn-hdr{
+  padding:7px 13px;
+  border:1px solid var(--border);
+  background:var(--surface2);
+  color:var(--text);
+  border-radius:8px;
+  font-family:'Figtree',sans-serif;
+  font-size:0.78rem;font-weight:600;
+  cursor:pointer;
+  transition:border-color .2s,color .2s;
+  white-space:nowrap;
+}
+.btn-hdr:hover{border-color:var(--t1);color:var(--t1)}
+
+/* ── Grid ────────────────────────────────── */
+.grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:18px;
+}
+@media(max-width:860px){.grid{grid-template-columns:1fr}}
+
+/* ── Tier card ───────────────────────────── */
+.tier-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+.tier-card:fullscreen{
+  background:var(--surface);
+  display:flex;flex-direction:column;
+  overflow-y:auto;
+}
+.tier-card:fullscreen .chart-wrap{flex:1;display:flex;align-items:stretch}
+.tier-card:fullscreen canvas{height:100% !important;max-height:55vh}
+
+.card-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;
+  border-bottom:1px solid var(--border);
+  background:var(--surface2);
+}
+.card-title{
+  font-family:'Syne',sans-serif;
+  font-size:0.95rem;font-weight:700;
+  display:flex;align-items:center;gap:8px;
+}
+.badge{
+  font-size:0.65rem;font-weight:700;
+  padding:3px 9px;border-radius:20px;
+  letter-spacing:.5px;text-transform:uppercase;
+}
+.t1 .badge{background:var(--t1-dim);color:var(--t1)}
+.t2 .badge{background:var(--t2-dim);color:var(--t2)}
+.fs-btn{
+  width:30px;height:30px;border-radius:7px;
+  border:1px solid var(--border);
+  background:transparent;color:var(--muted);
+  cursor:pointer;font-size:0.9rem;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;
+}
+.fs-btn:hover{border-color:var(--text);color:var(--text)}
+
+.chart-wrap{padding:14px 14px 8px;background:var(--surface)}
+
+/* ── Stats ───────────────────────────────── */
+.stats-row{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  background:var(--surface2);
+}
+.stat{padding:10px 12px;text-align:center;border-right:1px solid var(--border)}
+.stat:last-child{border-right:none}
+.stat-lbl{font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px}
+.stat-val{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700}
+.t1 .stat-val{color:var(--t1)}
+.t2 .stat-val{color:var(--t2)}
+.up{color:var(--success)!important}
+.dn{color:var(--danger)!important}
+.flat{color:var(--muted)!important}
+
+/* ── Inputs ──────────────────────────────── */
+.input-area{padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.input-row{display:flex;gap:8px;flex-wrap:wrap}
+.field{flex:1;min-width:80px;display:flex;flex-direction:column;gap:4px}
+.field-lbl{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+input[type=number],input[type=date],textarea{
+  width:100%;
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);border-radius:8px;
+  padding:8px 11px;
+  font-family:'Figtree',sans-serif;font-size:0.88rem;
+  outline:none;transition:border-color .2s,box-shadow .2s;
+}
+input[type=number]:focus,input[type=date]:focus,textarea:focus{
+  border-color:var(--t1);box-shadow:0 0 0 3px var(--t1-glow);
+}
+.t2 input[type=number]:focus,.t2 input[type=date]:focus,.t2 textarea:focus{
+  border-color:var(--t2);box-shadow:0 0 0 3px var(--t2-glow);
+}
+/* date input color fix for dark theme */
+input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.7)}
+textarea{resize:none}
+.btn-row{display:flex;gap:8px}
+.btn{
+  flex:1;padding:9px 14px;border:none;border-radius:8px;
+  font-family:'Figtree',sans-serif;font-size:0.82rem;font-weight:600;
+  cursor:pointer;transition:filter .15s,transform .1s;
+}
+.btn:active{transform:scale(.97)}
+.btn-save-t1{background:var(--t1);color:#000}
+.btn-save-t1:hover{filter:brightness(1.12)}
+.btn-save-t2{background:var(--t2);color:#000}
+.btn-save-t2:hover{filter:brightness(1.12)}
+.btn-reset{background:transparent;border:1px solid var(--border);color:var(--danger)}
+.btn-reset:hover{background:rgba(248,81,73,.08);border-color:var(--danger)}
+
+/* ── History table ───────────────────────── */
+.history{border-top:1px solid var(--border);max-height:170px;overflow-y:auto}
+.history::-webkit-scrollbar{width:4px}
+.history::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+table{width:100%;border-collapse:collapse;font-size:0.78rem}
+thead{position:sticky;top:0;background:var(--surface2);z-index:1}
+th{
+  padding:7px 12px;text-align:left;
+  color:var(--muted);font-weight:600;font-size:0.65rem;
+  text-transform:uppercase;letter-spacing:.5px;
+  border-bottom:1px solid var(--border);
+}
+td{padding:7px 12px;border-bottom:1px solid rgba(48,54,61,.4);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.del-btn{
+  background:none;border:none;color:var(--danger);
+  cursor:pointer;opacity:.45;font-size:0.8rem;line-height:1;padding:0;
+}
+.del-btn:hover{opacity:1}
+.no-data{text-align:center;color:var(--muted);padding:18px;font-size:0.82rem}
+
+/* ── Import Modal ────────────────────────── */
+#importOverlay{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.72);
+  backdrop-filter:blur(5px);
+  z-index:1000;
+  display:none;
+  align-items:center;justify-content:center;
+}
+#importOverlay.open{display:flex}
+.modal{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:28px 30px;
+  max-width:400px;width:90%;
+  box-shadow:0 24px 60px rgba(0,0,0,.6);
+  animation:popIn .25s ease;
+}
+@keyframes popIn{from{transform:scale(.93);opacity:0}to{transform:none;opacity:1}}
+.modal h3{
+  font-family:'Syne',sans-serif;
+  font-size:1.05rem;font-weight:700;margin-bottom:6px;
+}
+.modal p{font-size:0.85rem;color:var(--muted);line-height:1.55;margin-bottom:18px}
+.modal-counts{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px;
+  margin-bottom:20px;
+}
+.count-box{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:10px;padding:12px;text-align:center;
+}
+.count-box .n{
+  font-family:'Syne',sans-serif;font-size:1.7rem;font-weight:800;
+  margin-bottom:2px;
+}
+.count-box .lbl{font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.modal-note{
+  font-size:0.76rem;color:var(--muted);
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;padding:10px 12px;margin-bottom:16px;
+  line-height:1.5;
+}
+.modal-note strong{color:var(--text)}
+.modal-btns{display:flex;gap:8px}
+.m-btn{
+  flex:1;padding:10px 14px;border-radius:9px;
+  font-family:'Figtree',sans-serif;font-size:0.84rem;font-weight:600;
+  cursor:pointer;border:1px solid var(--border);
+  transition:all .2s;
+}
+.m-btn.replace{background:var(--danger);color:#fff;border-color:var(--danger)}
+.m-btn.replace:hover{filter:brightness(1.1)}
+.m-btn.merge{background:var(--t1);color:#000;border-color:var(--t1)}
+.m-btn.merge:hover{filter:brightness(1.1)}
+.m-btn.cancel{background:transparent;color:var(--muted)}
+.m-btn.cancel:hover{color:var(--text);border-color:var(--text)}
+
+/* ── Toast ───────────────────────────────── */
+#toasts{
+  position:fixed;bottom:24px;right:24px;
+  z-index:9999;display:flex;flex-direction:column;gap:8px;
+}
+.toast{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:10px;padding:10px 16px;
+  font-size:0.82rem;font-weight:500;
+  display:flex;align-items:center;gap:8px;
+  min-width:220px;max-width:340px;
+  animation:toastIn .3s ease;
+  box-shadow:0 4px 20px rgba(0,0,0,.4);
+}
+.toast.success{border-left:3px solid var(--success)}
+.toast.error  {border-left:3px solid var(--danger)}
+.toast.info   {border-left:3px solid var(--t2)}
+.toast.warn   {border-left:3px solid var(--warn)}
+@keyframes toastIn{from{transform:translateX(16px);opacity:0}to{transform:none;opacity:1}}
+</style>
+</head>
+<body>
+
+<div id="toasts"></div>
+
+<!-- ══ IMPORT MODAL ═══════════════════════════════════════════ -->
+<div id="importOverlay">
+  <div class="modal">
+    <h3>📂 Import Backup Data</h3>
+    <p>Found the following entries in your JSON file. How would you like to load them?</p>
+    <div class="modal-counts">
+      <div class="count-box">
+        <div class="n" id="imp-t1-count" style="color:var(--t1)">0</div>
+        <div class="lbl">Tier 1 entries</div>
+      </div>
+      <div class="count-box">
+        <div class="n" id="imp-t2-count" style="color:var(--t2)">0</div>
+        <div class="lbl">Tier 2 entries</div>
+      </div>
+    </div>
+    <div class="modal-note">
+      <strong>+ Merge</strong> — appends imported entries after your current data.<br>
+      <strong>↺ Replace</strong> — clears current data and loads the backup instead.
+    </div>
+    <div class="modal-btns">
+      <button class="m-btn cancel"  onclick="closeImportModal()">Cancel</button>
+      <button class="m-btn merge"   onclick="confirmImport('merge')">+ Merge</button>
+      <button class="m-btn replace" onclick="confirmImport('replace')">↺ Replace</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden file input for import -->
+<input type="file" id="importFileInput" accept=".json" style="display:none"
+       onchange="handleImportFile(event)">
+
+<!-- ══ HEADER ═══════════════════════════════════════════════ -->
+<header>
+  <div class="logo">📊 Mock <em>Test</em> Tracker</div>
+  <div class="header-right">
+    <div class="sync-pill">
+      <div class="dot" id="syncDot"></div>
+      <span id="syncLabel">Not synced</span>
+    </div>
+    <button class="btn-hdr" onclick="document.getElementById('importFileInput').click()">⇣ Import JSON</button>
+    <button class="btn-hdr" onclick="exportData()">⇡ Export JSON</button>
+    <button class="btn-hdr" onclick="syncAll()">☁ Sync Firebase</button>
+    <button class="btn-hdr" onclick="loadFromFirebase()">↓ Load Firebase</button>
+  </div>
+</header>
+
+<!-- ══ MAIN GRID ════════════════════════════════════════════ -->
+<div class="grid">
+
+  <!-- ── TIER 1 ── -->
+  <div class="tier-card t1" id="tier1Card">
+    <div class="card-hdr">
+      <div class="card-title">Tier 1 <span class="badge">SSC CGL</span></div>
+      <button class="fs-btn" title="Toggle fullscreen" onclick="toggleFullscreen('tier1Card')">⛶</button>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="tier1Canvas" height="210"></canvas>
+    </div>
+    <div class="stats-row">
+      <div class="stat"><div class="stat-lbl">Average</div><div class="stat-val" id="t1-avg">—</div></div>
+      <div class="stat"><div class="stat-lbl">Best</div>   <div class="stat-val" id="t1-best">—</div></div>
+      <div class="stat"><div class="stat-lbl">Latest</div> <div class="stat-val" id="t1-latest">—</div></div>
+      <div class="stat"><div class="stat-lbl">Trend</div>  <div class="stat-val flat" id="t1-trend">—</div></div>
+    </div>
+    <div class="input-area">
+      <div class="input-row">
+        <div class="field" style="max-width:115px">
+          <div class="field-lbl">Score / Marks</div>
+          <input type="number" id="t1-score" placeholder="e.g. 141" step="0.01" min="0">
+        </div>
+        <div class="field" style="max-width:135px">
+          <div class="field-lbl">Date</div>
+          <input type="date" id="t1-date">
+        </div>
+        <div class="field">
+          <div class="field-lbl">Comment / Notes</div>
+          <textarea id="t1-c" rows="1" placeholder="e.g. Maths was tough…"></textarea>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-save-t1" onclick="saveEntry('t1')">Save Entry</button>
+        <button class="btn btn-reset"   onclick="resetTier('t1')">Reset All</button>
+      </div>
+    </div>
+    <div class="history">
+      <table>
+        <thead><tr><th>#</th><th>Date</th><th>Score</th><th>Comment</th><th></th></tr></thead>
+        <tbody id="t1-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── TIER 2 ── -->
+  <div class="tier-card t2" id="tier2Card">
+    <div class="card-hdr">
+      <div class="card-title">Tier 2 <span class="badge">SSC CGL</span></div>
+      <button class="fs-btn" title="Toggle fullscreen" onclick="toggleFullscreen('tier2Card')">⛶</button>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="tier2Canvas" height="210"></canvas>
+    </div>
+    <div class="stats-row">
+      <div class="stat"><div class="stat-lbl">Average</div><div class="stat-val" id="t2-avg">—</div></div>
+      <div class="stat"><div class="stat-lbl">Best</div>   <div class="stat-val" id="t2-best">—</div></div>
+      <div class="stat"><div class="stat-lbl">Latest</div> <div class="stat-val" id="t2-latest">—</div></div>
+      <div class="stat"><div class="stat-lbl">Trend</div>  <div class="stat-val flat" id="t2-trend">—</div></div>
+    </div>
+    <div class="input-area">
+      <div class="input-row">
+        <div class="field" style="max-width:115px">
+          <div class="field-lbl">Score / Marks</div>
+          <input type="number" id="t2-score" placeholder="e.g. 282" step="0.01" min="0">
+        </div>
+        <div class="field" style="max-width:135px">
+          <div class="field-lbl">Date</div>
+          <input type="date" id="t2-date">
+        </div>
+        <div class="field">
+          <div class="field-lbl">Comment / Notes</div>
+          <textarea id="t2-c" rows="1" placeholder="e.g. RBE live mock 9…"></textarea>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-save-t2" onclick="saveEntry('t2')">Save Entry</button>
+        <button class="btn btn-reset"   onclick="resetTier('t2')">Reset All</button>
+      </div>
+    </div>
+    <div class="history">
+      <table>
+        <thead><tr><th>#</th><th>Date</th><th>Score</th><th>Comment</th><th></th></tr></thead>
+        <tbody id="t2-table"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /.grid -->
+
+<!-- Scripts — Chart.js first, then Firebase compat -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+/* ═══════════════════════════════════════════════
+   FIREBASE
+═══════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey: "AIzaSyDyqLW6K7aMZudaGHRvxrceQDaANQE4c4Q",
+  authDomain: "local-to-firebass.firebaseapp.com",
+  databaseURL: "https://local-to-firebass-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "local-to-firebass",
+  storageBucket: "local-to-firebass.appspot.com",
+  messagingSenderId: "121890064671",
+  appId: "1:121890064671:web:9143764a66282571c1c82a"
+};
+let db = null;
+try { firebase.initializeApp(firebaseConfig); db = firebase.database(); } catch(e) {
+  console.warn('Firebase init skipped:', e.message);
+}
+
+/* ═══════════════════════════════════════════════
+   DATA MODEL
+   ─────────────────────────────────────────────
+   Internal  : { date: string, score: number, comment: string }
+   Export /
+   Firebase  : { date: string, marks: number, comment: string }
+               (matches the exact backup JSON format)
+   Import    : accepts marks | score | percentile field → normalised to score
+   Migration : old localStorage keys (t1PercentileData) are auto-migrated
+═══════════════════════════════════════════════ */
+
+/** Normalise any version of a raw entry into internal { date, score, comment } */
+function normalise(e) {
+  return {
+    date:    (e.date || new Date().toISOString().slice(0, 10)).trim(),
+    score:   parseFloat(e.marks ?? e.score ?? e.percentile ?? 0),
+    comment: (e.comment || '').trim(),
+  };
+}
+
+/** Load from localStorage; migrate legacy key names if needed */
+function loadLocal(tier) {
+  const raw = localStorage.getItem(`${tier}Data`)
+           || localStorage.getItem(`${tier}PercentileData`);   // legacy v1 key
+  if (!raw) return [];
+  try { return JSON.parse(raw).map(normalise); } catch { return []; }
+}
+
+/* ── State ────────────────────────────────── */
+const state = {
+  t1: loadLocal('t1'),
+  t2: loadLocal('t2'),
+};
+
+const charts = { t1: null, t2: null };
+
+const CFG = {
+  t1: { color: '#10b981', canvas: 'tier1Canvas', table: 't1-table',
+         scoreId: 't1-score', dateId: 't1-date', commentId: 't1-c' },
+  t2: { color: '#818cf8', canvas: 'tier2Canvas', table: 't2-table',
+         scoreId: 't2-score', dateId: 't2-date', commentId: 't2-c' },
+};
+
+/* Default date inputs to today */
+const TODAY = new Date().toISOString().slice(0, 10);
+document.getElementById('t1-date').value = TODAY;
+document.getElementById('t2-date').value = TODAY;
+
+/* ═══════════════════════════════════════════════
+   CHART
+   Dynamic Y-axis: suggestedMax = max × 1.15 (min 100).
+   Tooltip callbacks show score + comment in canvas
+   tooltip — works in both normal and fullscreen modes.
+═══════════════════════════════════════════════ */
+function buildChart(tier) {
+  const data  = state[tier];
+  const cfg   = CFG[tier];
+  const color = cfg.color;
+  const ctx   = document.getElementById(cfg.canvas);
+
+  if (charts[tier]) charts[tier].destroy();
+
+  const scores  = data.map(e => e.score);
+  const dynMax  = scores.length
+    ? Math.max(Math.ceil(Math.max(...scores) * 1.15), 100)
+    : 100;
+
+  charts[tier] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: data.map((_, i) => `#${i + 1}`),
+      datasets: [{
+        label: 'Score',
+        data: scores,
+        borderColor: color,
+        backgroundColor: color + '18',
+        pointBackgroundColor: color,
+        pointBorderColor: '#161b22',
+        pointBorderWidth: 2,
+        pointRadius: 5,
+        pointHoverRadius: 8,
+        tension: 0.38,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      animation: { duration: 350 },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#8b949e', font: { family: 'Figtree', size: 11 } },
+        },
+        y: {
+          min: 0,
+          suggestedMax: dynMax,
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#8b949e', font: { family: 'Figtree', size: 11 } },
+          title: { display: true, text: 'Score / Marks', color: '#8b949e',
+                   font: { family: 'Figtree', size: 11 } }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(13,17,23,0.96)',
+          titleColor: color,
+          bodyColor: '#e6edf3',
+          borderColor: '#30363d',
+          borderWidth: 1,
+          padding: 12,
+          cornerRadius: 10,
+          titleFont: { family: 'Syne',    size: 12, weight: '700' },
+          bodyFont:  { family: 'Figtree', size: 12 },
+          callbacks: {
+            title(items) {
+              const idx = items[0].dataIndex;
+              return `Mock #${idx + 1}  ·  ${data[idx].date}`;
+            },
+            label(item) {
+              return `  Score : ${item.raw}`;
+            },
+            afterLabel(item) {
+              const c = data[item.dataIndex]?.comment;
+              return c ? `  📝 ${c}` : '';
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   STATS
+═══════════════════════════════════════════════ */
+function updateStats(tier) {
+  const data = state[tier];
+  const g    = id => document.getElementById(`${tier}-${id}`);
+
+  if (!data.length) {
+    ['avg','best','latest','trend'].forEach(k => {
+      const el = g(k); el.textContent = '—'; el.className = 'stat-val flat';
+    });
+    return;
+  }
+
+  const vals   = data.map(e => e.score);
+  const avg    = vals.reduce((s, v) => s + v, 0) / vals.length;
+  const best   = Math.max(...vals);
+  const latest = vals[vals.length - 1];
+
+  g('avg').textContent    = avg.toFixed(1);
+  g('best').textContent   = best.toFixed(1);
+  g('latest').textContent = latest.toFixed(1);
+
+  const tEl = g('trend');
+  if (vals.length < 2) {
+    tEl.textContent = '→'; tEl.className = 'stat-val flat';
+  } else {
+    const diff = latest - vals[vals.length - 2];
+    if (diff > 0)      { tEl.textContent = `↑ +${diff.toFixed(1)}`; tEl.className = 'stat-val up'; }
+    else if (diff < 0) { tEl.textContent = `↓ ${diff.toFixed(1)}`;  tEl.className = 'stat-val dn'; }
+    else               { tEl.textContent = '→ 0';                    tEl.className = 'stat-val flat'; }
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   HISTORY TABLE
+═══════════════════════════════════════════════ */
+function renderTable(tier) {
+  const data  = state[tier];
+  const tbody = document.getElementById(CFG[tier].table);
+
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="no-data">No entries yet — add your first result above.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = [...data].reverse().map((e, ri) => {
+    const realIdx = data.length - 1 - ri;
+    const safeComment = (e.comment || '').replace(/"/g, "'").replace(/</g, '&lt;');
+    const commentCell = safeComment
+      ? `<span title="${safeComment}"
+           style="color:var(--muted);max-width:130px;display:inline-block;
+                  overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+         >${safeComment}</span>`
+      : `<span style="color:var(--border)">—</span>`;
+
+    return `<tr>
+      <td style="color:var(--muted)">${realIdx + 1}</td>
+      <td>${e.date}</td>
+      <td style="font-weight:600">${e.score}</td>
+      <td>${commentCell}</td>
+      <td><button class="del-btn" onclick="deleteEntry('${tier}',${realIdx})">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════
+   SAVE / DELETE / RESET
+═══════════════════════════════════════════════ */
+function saveEntry(tier) {
+  const cfg = CFG[tier];
+  const sEl = document.getElementById(cfg.scoreId);
+  const dEl = document.getElementById(cfg.dateId);
+  const cEl = document.getElementById(cfg.commentId);
+  const s   = parseFloat(sEl.value);
+
+  if (sEl.value === '' || isNaN(s)) { toast('Please enter a score / marks value.', 'error'); return; }
+  if (s < 0)                         { toast('Score cannot be negative.', 'error'); return; }
+
+  state[tier].push({
+    date:    dEl.value || TODAY,
+    score:   s,
+    comment: cEl.value.trim(),
+  });
+
+  persist(tier);
+  sEl.value = ''; cEl.value = ''; dEl.value = TODAY;
+  refresh(tier);
+  toast('Entry saved ✓', 'success');
+  autoSync(tier);
+}
+
+function deleteEntry(tier, idx) {
+  state[tier].splice(idx, 1);
+  persist(tier); refresh(tier);
+  toast('Entry deleted', 'info');
+  autoSync(tier);
+}
+
+function resetTier(tier) {
+  const label = tier === 't1' ? 'Tier 1' : 'Tier 2';
+  if (!confirm(`Reset all ${label} data? This cannot be undone.`)) return;
+  state[tier] = [];
+  persist(tier); refresh(tier);
+  toast(`${label} data cleared`, 'warn');
+  autoSync(tier);
+}
+
+function persist(tier) {
+  localStorage.setItem(`${tier}Data`, JSON.stringify(state[tier]));
+}
+
+function refresh(tier) {
+  buildChart(tier);
+  updateStats(tier);
+  renderTable(tier);
+}
+
+function refreshAll() { refresh('t1'); refresh('t2'); }
+
+/* ═══════════════════════════════════════════════
+   EXPORT
+   Produces JSON matching the backup file format exactly:
+   { tier1Data:[{date,marks,comment}…], tier2Data:[…] }
+═══════════════════════════════════════════════ */
+function exportData() {
+  const toExport = e => ({ date: e.date, marks: e.score, comment: e.comment });
+  const payload  = {
+    tier1Data: state.t1.map(toExport),
+    tier2Data: state.t2.map(toExport),
+  };
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {
+    href:     url,
+    download: `mock_test_backup_${TODAY}.json`,
+  });
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Backup downloaded ✓', 'success');
+}
+
+/* ═══════════════════════════════════════════════
+   IMPORT — file reader + modal
+   Accepts: { tier1Data, tier2Data } (backup format)
+        or: { t1, t2 }              (internal format)
+   Each entry may use marks | score | percentile field.
+═══════════════════════════════════════════════ */
+let _pendingImport = null;
+
+function handleImportFile(evt) {
+  const file = evt.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+
+      // Support both naming conventions
+      const raw1 = parsed.tier1Data || parsed.t1 || [];
+      const raw2 = parsed.tier2Data || parsed.t2 || [];
+
+      if (!Array.isArray(raw1) || !Array.isArray(raw2))
+        throw new Error('Expected tier1Data and tier2Data arrays.');
+
+      _pendingImport = {
+        t1: raw1.map(normalise),
+        t2: raw2.map(normalise),
+      };
+
+      document.getElementById('imp-t1-count').textContent = raw1.length;
+      document.getElementById('imp-t2-count').textContent = raw2.length;
+      document.getElementById('importOverlay').classList.add('open');
+    } catch(err) {
+      toast('Could not read JSON: ' + err.message, 'error');
+    }
+    evt.target.value = ''; // allow re-selecting same file
+  };
+  reader.readAsText(file);
+}
+
+function closeImportModal() {
+  document.getElementById('importOverlay').classList.remove('open');
+  _pendingImport = null;
+}
+
+function confirmImport(mode) {
+  if (!_pendingImport) return;
+
+  if (mode === 'replace') {
+    state.t1 = _pendingImport.t1;
+    state.t2 = _pendingImport.t2;
+  } else {
+    // Merge: append imported entries after existing
+    state.t1 = [...state.t1, ..._pendingImport.t1];
+    state.t2 = [...state.t2, ..._pendingImport.t2];
+  }
+
+  persist('t1'); persist('t2');
+  closeImportModal();
+  refreshAll();
+  toast(mode === 'replace' ? 'Data replaced from backup ✓' : 'Data merged from backup ✓', 'success');
+  autoSync('t1'); autoSync('t2');
+}
+
+/* ═══════════════════════════════════════════════
+   FIREBASE
+═══════════════════════════════════════════════ */
+function setSyncUI(status, msg) {
+  document.getElementById('syncDot').className    = 'dot ' + status;
+  document.getElementById('syncLabel').textContent = msg;
+}
+
+const toFirebaseFormat = arr => arr.map(e => ({ date: e.date, marks: e.score, comment: e.comment }));
+
+async function autoSync(tier) {
+  if (!db) return;
+  try {
+    await db.ref(`percentileTracker/${tier}`).set(toFirebaseFormat(state[tier]));
+    setSyncUI('synced', 'Synced');
+  } catch { setSyncUI('error', 'Sync failed'); }
+}
+
+async function syncAll() {
+  if (!db) { toast('Firebase not initialised', 'error'); return; }
+  setSyncUI('syncing', 'Syncing…');
+  try {
+    await Promise.all([
+      db.ref('percentileTracker/t1').set(toFirebaseFormat(state.t1)),
+      db.ref('percentileTracker/t2').set(toFirebaseFormat(state.t2)),
+    ]);
+    setSyncUI('synced', 'Synced');
+    toast('All data synced to Firebase ✓', 'success');
+  } catch(e) {
+    setSyncUI('error', 'Sync failed');
+    toast('Firebase sync failed: ' + e.message, 'error');
+  }
+}
+
+async function loadFromFirebase() {
+  if (!db) { toast('Firebase not initialised', 'error'); return; }
+  setSyncUI('syncing', 'Loading…');
+  try {
+    const [s1, s2] = await Promise.all([
+      db.ref('percentileTracker/t1').once('value'),
+      db.ref('percentileTracker/t2').once('value'),
+    ]);
+    const d1 = s1.val(), d2 = s2.val();
+    if (d1) { state.t1 = (Array.isArray(d1) ? d1 : Object.values(d1)).map(normalise); persist('t1'); }
+    if (d2) { state.t2 = (Array.isArray(d2) ? d2 : Object.values(d2)).map(normalise); persist('t2'); }
+    setSyncUI('synced', 'Synced');
+    refreshAll();
+    toast('Data loaded from Firebase ✓', 'success');
+  } catch(e) {
+    setSyncUI('error', 'Load failed');
+    toast('Firebase unavailable — using local data.', 'warn');
+    refreshAll();
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   FULLSCREEN
+═══════════════════════════════════════════════ */
+function toggleFullscreen(cardId) {
+  const el = document.getElementById(cardId);
+  if (!document.fullscreenElement) {
+    el.requestFullscreen().catch(e => toast('Fullscreen error: ' + e.message, 'error'));
+  } else {
+    document.exitFullscreen();
+  }
+}
+document.addEventListener('fullscreenchange', () => {
+  setTimeout(() => {
+    if (charts.t1) charts.t1.resize();
+    if (charts.t2) charts.t2.resize();
+  }, 320);
+});
+
+/* ═══════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════ */
+function toast(msg, type = 'info') {
+  const c = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  const icons = { success: '✓', error: '✕', info: 'ℹ', warn: '⚠' };
+  t.innerHTML = `<span>${icons[type] || 'ℹ'}</span>${msg}`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3800);
+}
+
+/* ═══════════════════════════════════════════════
+   INIT — try Firebase, fall back to local
+═══════════════════════════════════════════════ */
+(async function init() {
+  if (db) {
+    await loadFromFirebase();
+  } else {
+    refreshAll();
+  }
+})();
+</script>
+</body>
+</html>
